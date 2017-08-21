@@ -1,7 +1,7 @@
 import com.orientechnologies.orient.client.remote.OServerAdmin;
-import com.tinkerpop.blueprints.impls.orient.OrientGraph;
 import com.tinkerpop.blueprints.impls.orient.OrientGraphFactory;
-import com.tinkerpop.blueprints.impls.orient.OrientGraphNoTx;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 
@@ -18,19 +18,16 @@ public class CreateGraphDatabaseFixture {
     private OServerAdmin serverAdmin;
     OrientGraphFactory factory;
 
-    @BeforeTest
-    public void createDatabase() {
-        try {
-            serverAdmin = new OServerAdmin(URL);
-            serverAdmin.connect(USERNAME, PASSWORD);
-            if (serverAdmin.existsDatabase(DB_NAME, STORAGE_TYPE)) {
-                serverAdmin.dropDatabase(DB_NAME, STORAGE_TYPE);
-            }
-            serverAdmin.createDatabase(DB_NAME, DB_TYPE, STORAGE_TYPE);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public static final Logger LOG = LoggerFactory.getLogger(CreateGraphDatabaseFixture.class);
 
+    @BeforeTest
+    public void createDatabase() throws IOException {
+        serverAdmin = new OServerAdmin(URL);
+        serverAdmin.connect(USERNAME, PASSWORD);
+        if (serverAdmin.existsDatabase(DB_NAME, STORAGE_TYPE)) {
+            serverAdmin.dropDatabase(DB_NAME, STORAGE_TYPE);
+        }
+        serverAdmin.createDatabase(DB_NAME, DB_TYPE, STORAGE_TYPE);
         factory = new OrientGraphFactory(URL + "/" + DB_NAME, USERNAME, PASSWORD);
     }
 
@@ -39,7 +36,7 @@ public class CreateGraphDatabaseFixture {
         try {
             serverAdmin.dropDatabase(DB_NAME, STORAGE_TYPE);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("DB was not dropped", e);
         }
     }
 

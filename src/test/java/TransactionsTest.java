@@ -34,16 +34,19 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
             for (int i = 0; i < 8; i++) {
                 tasks.add(() -> {
                     long iterationNumber = 0;
-                    OrientGraph database = null;
-                    while (!interrupt.get()) {
-                        iterationNumber++;
-                        database = factory.getTx();
-                        addVertexesAndEdges(database, iterationNumber);
+                    OrientGraph database;
+                    try {
+                        while (!interrupt.get()) {
+                            iterationNumber++;
+                            database = factory.getTx();
+                            addVertexesAndEdges(database, iterationNumber);
+                            database.shutdown();
+                        }
+                        return null;
+                    } catch (Exception e) {
+                        LOG.error("Exception during operation processing", e);
+                        throw e;
                     }
-                    if (database != null) {
-                        database.shutdown();
-                    }
-                    return null;
                 });
             }
             List<Future<Object>> futures = executor.invokeAll(tasks);
