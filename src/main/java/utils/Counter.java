@@ -9,4 +9,8 @@ public class Counter {
     public static long getNextVertexId() {
         return vertexCounter.incrementAndGet();
     }
+
+    public static long getVertexesNumber() {
+        return vertexCounter.get();
+    }
 }

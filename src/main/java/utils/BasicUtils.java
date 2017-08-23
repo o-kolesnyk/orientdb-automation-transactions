@@ -15,14 +15,18 @@ public class BasicUtils {
         Date date = new Date();
         GregorianCalendar calendar = new GregorianCalendar();
         calendar.setTime(date);
-        //TODO: change minutes to hours and use HOURS_NUMBER
-        calendar.add(Calendar.MINUTE, 1);
+        //TODO: change seconds to hours and use HOURS_NUMBER
+        calendar.add(Calendar.SECOND, 30);
         date.setTime(calendar.getTime().getTime());
         return date;
     }
 
     public static int generateBatchSize() {
         return ThreadLocalRandom.current().nextInt(MIN_BATCH, MAX_BATCH);
+    }
+
+    public static long generateRnd() {
+        return ThreadLocalRandom.current().nextLong(0, Counter.getVertexesNumber() * 1000);
     }
 
 }
