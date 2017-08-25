@@ -1,9 +1,12 @@
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
+import com.sun.org.apache.bcel.internal.generic.RET;
 import com.tinkerpop.blueprints.Vertex;
+import com.tinkerpop.blueprints.impls.orient.OrientDynaElementIterable;
 import com.tinkerpop.blueprints.impls.orient.OrientGraph;
 import com.tinkerpop.blueprints.impls.orient.OrientGraphNoTx;
+import org.junit.Assert;
 import org.testng.annotations.Test;
 import utils.BasicUtils;
 import utils.Counter;
@@ -30,7 +33,8 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
 
     @Test
     public void mainTest() throws InterruptedException, ExecutionException {
-        OClass clazz = createClass(factory.getNoTx());
+        OClass clazz = createVertexClass(factory.getNoTx());
+        createEdgeClass(factory.getNoTx());
         createProperties(clazz);
         createIndexes(clazz);
 
@@ -76,8 +80,12 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
         }
     }
 
-    private OClass createClass(OrientGraphNoTx graphNoTx) {
+    private OClass createVertexClass(OrientGraphNoTx graphNoTx) {
         return graphNoTx.createVertexType(VERTEX_CLASS);
+    }
+
+    private void createEdgeClass(OrientGraphNoTx graphNoTx) {
+        graphNoTx.createEdgeType(EDGE_LABEL);
     }
 
     private void createProperties(OClass clazz) {
@@ -131,10 +139,10 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
     private void performSelectOperations(OrientGraph graph, List<Long> ids) {
         long firstId = ids.get(0);
         long lastId = ids.get(ids.size() - 1);
-        long limit = lastId - (firstId + 1);
+        long limit = lastId - firstId + 1;
 
-        graph.command(new OCommandSQL(
+        OrientDynaElementIterable result = graph.command(new OCommandSQL(
                 "select * from V where vertexId <= " + lastId + " order by vertexId" + " limit " + limit)).execute();
+        Assert.assertTrue(result.iterator().hasNext());
     }
-
 }
