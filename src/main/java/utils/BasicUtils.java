@@ -29,4 +29,8 @@ public class BasicUtils {
         return ThreadLocalRandom.current().nextLong(0, Counter.getVertexesNumber() * 1000);
     }
 
+    public static long getRandomVertexId() {
+        return ThreadLocalRandom.current().nextLong(1, Counter.getVertexesNumber());
+    }
+
 }
