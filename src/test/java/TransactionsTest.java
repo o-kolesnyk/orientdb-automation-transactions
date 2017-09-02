@@ -146,12 +146,10 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
                 if (addedVertexes == batchSize) {
                     edge = graph.newEdge(vertexes.get(i), vertexes.get(0), EDGE_LABEL);
                     edge.save();
+                    checkRingCreated(graph, ids);
                 }
                 if (addedVertexes == batchSize / 3 || addedVertexes == batchSize * 2 / 3 || addedVertexes == batchSize) {
                     performSelectOperations(graph, ids, iterationNumber, threadId, ids.size(), 1);
-                }
-                if (addedVertexes == batchSize) {
-                    checkRingCreated(graph, ids);
                 }
             }
             graph.commit();
