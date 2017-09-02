@@ -184,7 +184,7 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
                 "select * from V where " + VERTEX_ID + " <= ? and " + ITERATION + " = ? and " + CREATOR_ID + " = ? order by " + VERTEX_ID + " limit " + limit,
                 lastId, iteration, threadId);
 
-        Assert.assertEquals("Selecting of all vertexes returned a wrong number of records, # of ids " + ids,
+        Assert.assertEquals("Selecting of all vertexes returned a wrong number of records, # of ids " + ids.size(),
                 expectedAll, allRecords.stream().count());
 
         for (long id : ids) {
