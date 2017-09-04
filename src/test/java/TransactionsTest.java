@@ -6,15 +6,13 @@ import com.orientechnologies.orient.core.record.OEdge;
 import com.orientechnologies.orient.core.record.OElement;
 import com.orientechnologies.orient.core.record.OVertex;
 import com.orientechnologies.orient.core.sql.executor.OResultSet;
+import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import org.junit.Assert;
 import org.testng.annotations.Test;
 import utils.BasicUtils;
 import utils.Counter;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -119,7 +117,6 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
 
     private void addVertexesAndEdges(ODatabaseSession graph, long iterationNumber) {
         int batchSize = BasicUtils.generateBatchSize();
-        //int batchSize = 6;
         List<OVertex> vertexes = new ArrayList<>(batchSize);
         List<Long> ids = new ArrayList<>();
         long threadId = Thread.currentThread().getId();
@@ -158,12 +155,15 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
             performSelectOperations(graph, ids, iterationNumber, threadId, ids.size(), 1);
             checkRingCreated(graph, ids);
             //checkClusterPositionsPositive(vertexes);
-        } catch (Exception e) {
-            LOG.error("Exception was caught", e);
+        } catch (ORecordDuplicatedException e) {
+            LOG.error("Duplicated record", e);
             graph.rollback();
 
             //actions after rollback
             performSelectOperations(graph, ids, iterationNumber, threadId, 0, 0);
+        } catch (Exception e) {
+            LOG.error("Exception was caught");
+            throw e;
         }
     }
 
@@ -179,7 +179,8 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
         long limit = lastId - firstId + 1;
 
         OResultSet allRecords = graph.query(
-                "select * from V where " + VERTEX_ID + " <= ? and " + ITERATION + " = ? and " + CREATOR_ID + " = ? order by " + VERTEX_ID + " limit " + limit,
+                "select * from V where " + VERTEX_ID + " <= ? and " + ITERATION + " = ? and "
+                        + CREATOR_ID + " = ? order by " + VERTEX_ID + " limit " + limit,
                 lastId, iteration, threadId);
 
         Assert.assertEquals("Selecting of all vertexes returned a wrong number of records, # of ids " + ids.size(),
@@ -207,16 +208,18 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
             creatorIds.add(vertex.getProperty(CREATOR_ID));
             iterationNumbers.add(vertex.getProperty(ITERATION));
             Iterable<OEdge> edges = vertex.getEdges(ODirection.OUT, EDGE_LABEL);
+            Assert.assertTrue("Edge OUT doesn't exist in vertex " + vertex.getProperty(VERTEX_ID),
+                    edges.iterator().hasNext());
             OVertex nextVertex = edges.iterator().next().getTo();
 
-            long idx;
+            long vertexId;
             if (i == batchCount - 1) {
-                idx = ids.get(0);
+                vertexId = ids.get(0);
             } else {
-                idx = ids.get(i + 1);
+                vertexId = ids.get(i + 1);
             }
 
-            boolean connected = nextVertex.getProperty(VERTEX_ID).equals(idx);
+            boolean connected = nextVertex.getProperty(VERTEX_ID).equals(vertexId);
             Assert.assertTrue("Vertexes are not correctly connected by edges", connected);
             vertex = nextVertex;
 
@@ -236,11 +239,22 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
     }
 
     private void deleteVertexesAndEdges(ODatabaseSession graph, long iterationNumber) {
-        /*long vertexIdToDelete = BasicUtils.getRandomVertexId();
+        List<Long> ids = new ArrayList<>();
+        long vertexIdToDelete = BasicUtils.getRandomVertexId();
+        ids.add(vertexIdToDelete);
 
         OResultSet resultSet = graph.query("select from V where " + VERTEX_ID + " = ?", vertexIdToDelete);
-        OElement vertex = resultSet.next().getElement().get();*/
+        OVertex vertex = (OVertex) resultSet.next().getElement().get();
+        int batchCount = vertex.getProperty(BATCH_COUNT);
 
-
+        for (int i = 0; i < batchCount; i++) {
+            Iterable<OEdge> edges = vertex.getEdges(ODirection.OUT, EDGE_LABEL);
+            Assert.assertTrue("Edge OUT doesn't exist in vertex " + vertex.getProperty(VERTEX_ID),
+                    edges.iterator().hasNext());
+            OVertex nextVertex = edges.iterator().next().getTo();
+            ids.add(nextVertex.getProperty(VERTEX_ID));
+            vertex = nextVertex;
+        }
+        //TODO: not finished
     }
 }
