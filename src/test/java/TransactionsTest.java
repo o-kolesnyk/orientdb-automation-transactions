@@ -121,15 +121,22 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
         int batchSize = BasicUtils.generateBatchSize();
         //int batchSize = 6;
         List<OVertex> vertexes = new ArrayList<>(batchSize);
+        List<Long> pre_ids = new ArrayList<>();
         List<Long> ids = new ArrayList<>();
         long threadId = Thread.currentThread().getId();
         graph.begin();
         try {
             for (int i = 0; i < batchSize; i++) {
-                OVertex vertex = graph.newVertex(VERTEX_CLASS);
                 long vertexId = Counter.getNextVertexId();
-                ids.add(vertexId);
-                vertex.setProperty(VERTEX_ID, vertexId);
+                pre_ids.add(vertexId);
+            }
+
+            performSelectOperations(graph, pre_ids, iterationNumber, threadId, 0, 0);
+
+            for (int i = 0; i < batchSize; i++) {
+                ids.add(pre_ids.get(i));
+                OVertex vertex = graph.newVertex(VERTEX_CLASS);
+                vertex.setProperty(VERTEX_ID, ids.get(i));
                 vertex.setProperty(CREATOR_ID, threadId);
                 vertex.setProperty(BATCH_COUNT, batchSize);
                 vertex.setProperty(ITERATION, iterationNumber);
