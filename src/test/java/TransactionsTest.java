@@ -3,11 +3,11 @@ import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.ODirection;
 import com.orientechnologies.orient.core.record.OEdge;
-import com.orientechnologies.orient.core.record.OElement;
 import com.orientechnologies.orient.core.record.OVertex;
+import com.orientechnologies.orient.core.sql.executor.OResult;
 import com.orientechnologies.orient.core.sql.executor.OResultSet;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
-import org.junit.Assert;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 import utils.BasicUtils;
 import utils.Counter;
@@ -116,19 +116,20 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
     }
 
     private void addVertexesAndEdges(ODatabaseSession graph, long iterationNumber) {
-        int batchSize = BasicUtils.generateBatchSize();
-        List<OVertex> vertexes = new ArrayList<>(batchSize);
+        int batchCount = BasicUtils.generateBatchSize();
+        List<OVertex> vertexes = new ArrayList<>(batchCount);
         List<Long> ids = new ArrayList<>();
-        long threadId = Thread.currentThread().getId();
+
         graph.begin();
+        long threadId = Thread.currentThread().getId();
         try {
-            for (int i = 0; i < batchSize; i++) {
+            for (int i = 0; i < batchCount; i++) {
                 OVertex vertex = graph.newVertex(VERTEX_CLASS);
                 long vertexId = Counter.getNextVertexId();
                 ids.add(vertexId);
                 vertex.setProperty(VERTEX_ID, vertexId);
                 vertex.setProperty(CREATOR_ID, threadId);
-                vertex.setProperty(BATCH_COUNT, batchSize);
+                vertex.setProperty(BATCH_COUNT, batchCount);
                 vertex.setProperty(ITERATION, iterationNumber);
                 vertex.setProperty(RND, BasicUtils.generateRnd());
                 vertex.save();
@@ -140,13 +141,13 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
                     edge = graph.newEdge(vertexes.get(i - 1), vertexes.get(i), EDGE_LABEL);
                     edge.save();
                 }
-                if (addedVertexes == batchSize) {
+                if (addedVertexes == batchCount) {
                     edge = graph.newEdge(vertexes.get(i), vertexes.get(0), EDGE_LABEL);
                     edge.save();
                     checkRingCreated(graph, ids);
                 }
-                if (addedVertexes == batchSize / 3 || addedVertexes == batchSize * 2 / 3 || addedVertexes == batchSize) {
-                    performSelectOperations(graph, ids, iterationNumber, threadId, ids.size(), 1);
+                if (addedVertexes == batchCount / 3 || addedVertexes == batchCount * 2 / 3 || addedVertexes == batchCount) {
+                    //performSelectOperations(graph, ids, iterationNumber, threadId, ids.size(), 1);
                 }
             }
             graph.commit();
@@ -183,13 +184,13 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
                         + CREATOR_ID + " = ? order by " + VERTEX_ID + " limit " + limit,
                 lastId, iteration, threadId);
 
-        Assert.assertEquals("Selecting of all vertexes returned a wrong number of records, # of ids " + ids.size(),
-                expectedAll, allRecords.stream().count());
+        Assert.assertEquals(allRecords.stream().count(), expectedAll,
+                "Selecting of all vertexes returned a wrong number of records, # of ids " + ids.size());
 
         for (long id : ids) {
             OResultSet uniqueItem = graph.query("select from V where " + VERTEX_ID + " = ?", id);
-            Assert.assertEquals("Selecting by vertexId returned a wrong number of records",
-                    expectedUnique, uniqueItem.stream().count());
+            Assert.assertEquals(uniqueItem.stream().count(), expectedUnique,
+                    "Selecting by vertexId returned a wrong number of records");
         }
     }
 
@@ -208,8 +209,8 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
             creatorIds.add(vertex.getProperty(CREATOR_ID));
             iterationNumbers.add(vertex.getProperty(ITERATION));
             Iterable<OEdge> edges = vertex.getEdges(ODirection.OUT, EDGE_LABEL);
-            Assert.assertTrue("Edge OUT doesn't exist in vertex " + vertex.getProperty(VERTEX_ID),
-                    edges.iterator().hasNext());
+            Assert.assertTrue(edges.iterator().hasNext(),
+                    "Edge OUT doesn't exist in vertex " + vertex.getProperty(VERTEX_ID));
             OVertex nextVertex = edges.iterator().next().getTo();
 
             long vertexId;
@@ -220,41 +221,60 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
             }
 
             boolean connected = nextVertex.getProperty(VERTEX_ID).equals(vertexId);
-            Assert.assertTrue("Vertexes are not correctly connected by edges", connected);
+            Assert.assertTrue(connected, "Vertexes are not correctly connected by edges");
             vertex = nextVertex;
 
         }
         boolean isOneThread = creatorIds.stream().distinct().limit(2).count() <= 1;
         boolean isOneIteration = iterationNumbers.stream().distinct().limit(2).count() <= 1;
-        Assert.assertTrue("Vertexes are not created by one thread", isOneThread);
-        Assert.assertTrue("Vertexes are not created during one iteration", isOneIteration);
+        Assert.assertTrue(isOneThread, "Vertexes are not created by one thread");
+        Assert.assertTrue(isOneIteration, "Vertexes are not created during one iteration");
     }
 
     private void checkClusterPositionsPositive(List<OVertex> vertexes) {
         for (int i = 0; i < vertexes.size(); i++) {
             long clusterPosition = vertexes.get(i).getIdentity().getClusterPosition();
-            Assert.assertTrue("Cluster position in a record is not positive",
-                    clusterPosition >= 0);
+            Assert.assertTrue(clusterPosition >= 0, "Cluster position in a record is not positive");
         }
     }
 
     private void deleteVertexesAndEdges(ODatabaseSession graph, long iterationNumber) {
-        List<Long> ids = new ArrayList<>();
-        long vertexIdToDelete = BasicUtils.getRandomVertexId();
-        ids.add(vertexIdToDelete);
+        graph.begin();
 
-        OResultSet resultSet = graph.query("select from V where " + VERTEX_ID + " = ?", vertexIdToDelete);
+        long firstVertex = BasicUtils.getRandomVertexId();
+        OResultSet resultSet = graph.query("select from V where " + VERTEX_ID + " = ?", firstVertex);
         OVertex vertex = (OVertex) resultSet.next().getElement().get();
         int batchCount = vertex.getProperty(BATCH_COUNT);
+        int threadId = vertex.getProperty(CREATOR_ID);
 
+        List<Long> ids = new ArrayList<>();
         for (int i = 0; i < batchCount; i++) {
             Iterable<OEdge> edges = vertex.getEdges(ODirection.OUT, EDGE_LABEL);
-            Assert.assertTrue("Edge OUT doesn't exist in vertex " + vertex.getProperty(VERTEX_ID),
-                    edges.iterator().hasNext());
+            Assert.assertTrue(edges.iterator().hasNext(),
+                    "Edge OUT doesn't exist in vertex " + vertex.getProperty(VERTEX_ID));
             OVertex nextVertex = edges.iterator().next().getTo();
             ids.add(nextVertex.getProperty(VERTEX_ID));
             vertex = nextVertex;
         }
-        //TODO: not finished
+        Collections.sort(ids);
+
+        List<Long> deletedIds = new ArrayList<>();
+
+        for (int i = 0; i < batchCount; i++) {
+            long idToDelete = ids.get(i);
+            OResultSet result = graph.command("delete vertex V where " + VERTEX_ID + " = ?", idToDelete);
+            OResult item = result.next();
+            item.getIdentity();
+            deletedIds.add(idToDelete);
+            int deletedIdsSize = deletedIds.size();
+            if (deletedIdsSize == batchCount / 3 || deletedIdsSize == batchCount * 2 / 3 || deletedIdsSize == batchCount) {
+                //check whether a part of vertexes were really deleted
+                performSelectOperations(graph, deletedIds, iterationNumber, threadId, 0, 0);
+                //check whether all the rest of the vertexes persist
+                ids.removeAll(deletedIds);
+                performSelectOperations(graph, ids, iterationNumber, threadId, ids.size(), 1);
+            }
+        }
+        graph.commit();
     }
 }
