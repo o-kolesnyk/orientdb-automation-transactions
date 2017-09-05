@@ -262,9 +262,7 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
 
         for (int i = 0; i < batchCount; i++) {
             long idToDelete = ids.get(i);
-            OResultSet result = graph.command("delete vertex V where " + VERTEX_ID + " = ?", idToDelete);
-            OResult item = result.next();
-            item.getIdentity();
+            graph.command("delete vertex V where " + VERTEX_ID + " = ?", idToDelete);
             deletedIds.add(idToDelete);
             int deletedIdsSize = deletedIds.size();
             if (deletedIdsSize == batchCount / 3 || deletedIdsSize == batchCount * 2 / 3 || deletedIdsSize == batchCount) {
