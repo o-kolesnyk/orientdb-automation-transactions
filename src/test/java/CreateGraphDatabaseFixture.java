@@ -21,7 +21,6 @@ public class CreateGraphDatabaseFixture {
     private static final String DB_TYPE = "graph";
     private OServerAdmin serverAdmin;
     OrientDB orientDB;
-    ODatabaseSession graph;
 
     public static final Logger LOG = LoggerFactory.getLogger(CreateGraphDatabaseFixture.class);
 

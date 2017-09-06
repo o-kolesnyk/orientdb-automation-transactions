@@ -4,7 +4,6 @@ import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.ODirection;
 import com.orientechnologies.orient.core.record.OEdge;
 import com.orientechnologies.orient.core.record.OVertex;
-import com.orientechnologies.orient.core.sql.executor.OResult;
 import com.orientechnologies.orient.core.sql.executor.OResultSet;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import org.apache.commons.collections.CollectionUtils;
@@ -31,13 +30,13 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
 
     @Test
     public void mainTest() throws InterruptedException, ExecutionException {
-        graph = orientDB.open(DB_NAME, DB_USERNAME, DB_PASSWORD);
+        ODatabaseSession graphNoTx = orientDB.open(DB_NAME, DB_USERNAME, DB_PASSWORD);
 
-        OClass clazz = graph.createVertexClass(VERTEX_CLASS);
-        graph.createEdgeClass(EDGE_LABEL);
+        OClass clazz = graphNoTx.createVertexClass(VERTEX_CLASS);
+        graphNoTx.createEdgeClass(EDGE_LABEL);
         createProperties(clazz);
         createIndexes(clazz);
-        graph.close();
+        graphNoTx.close();
 
         ExecutorService executor = Executors.newFixedThreadPool(8);
         List<Callable<Object>> tasksToCreate = new ArrayList<>();
@@ -267,7 +266,6 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
         Collections.sort(ids);
 
         List<Long> deletedIds = new ArrayList<>();
-
         for (int i = 0; i < batchCount; i++) {
             long idToDelete = ids.get(i);
             OResultSet result = graph.command("delete vertex V where " + VERTEX_ID + " = ?", idToDelete);
