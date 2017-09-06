@@ -4,9 +4,9 @@ import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.ODirection;
 import com.orientechnologies.orient.core.record.OEdge;
 import com.orientechnologies.orient.core.record.OVertex;
-import com.orientechnologies.orient.core.sql.executor.OResult;
 import com.orientechnologies.orient.core.sql.executor.OResultSet;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
+import org.apache.commons.collections.CollectionUtils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import utils.BasicUtils;
@@ -175,6 +175,11 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
                                          int expectedAll,
                                          int expectedUnique) {
 
+        selectAll(graph, ids, iteration, threadId, expectedAll);
+        selectByIds(graph, ids, expectedUnique);
+    }
+
+    private void selectAll(ODatabaseSession graph, List<Long> ids, long iteration, long threadId, int expectedAll) {
         long firstId = ids.get(0);
         long lastId = ids.get(ids.size() - 1);
         long limit = lastId - firstId + 1;
@@ -186,7 +191,9 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
 
         Assert.assertEquals(allRecords.stream().count(), expectedAll,
                 "Selecting of all vertexes returned a wrong number of records, # of ids " + ids.size());
+    }
 
+    private void selectByIds(ODatabaseSession graph, List<Long> ids, int expectedUnique) {
         for (long id : ids) {
             OResultSet uniqueItem = graph.query("select from V where " + VERTEX_ID + " = ?", id);
             Assert.assertEquals(uniqueItem.stream().count(), expectedUnique,
@@ -267,10 +274,13 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
             int deletedIdsSize = deletedIds.size();
             if (deletedIdsSize == batchCount / 3 || deletedIdsSize == batchCount * 2 / 3 || deletedIdsSize == batchCount) {
                 //check whether a part of vertexes were really deleted
-                performSelectOperations(graph, deletedIds, iterationNumber, threadId, 0, 0);
+                selectByIds(graph, deletedIds, 0);
                 //check whether all the rest of the vertexes persist
-                ids.removeAll(deletedIds);
-                performSelectOperations(graph, ids, iterationNumber, threadId, ids.size(), 1);
+                List<Long> retainedIds = (List<Long>) CollectionUtils.disjunction(ids, deletedIds);
+                if (!retainedIds.isEmpty()) {
+                    performSelectOperations(
+                            graph, retainedIds, iterationNumber, threadId, retainedIds.size(), 1);
+                }
             }
         }
         graph.commit();
