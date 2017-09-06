@@ -4,6 +4,7 @@ import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.ODirection;
 import com.orientechnologies.orient.core.record.OEdge;
 import com.orientechnologies.orient.core.record.OVertex;
+import com.orientechnologies.orient.core.sql.executor.OResult;
 import com.orientechnologies.orient.core.sql.executor.OResultSet;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import org.apache.commons.collections.CollectionUtils;
@@ -269,7 +270,9 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
 
         for (int i = 0; i < batchCount; i++) {
             long idToDelete = ids.get(i);
-            graph.command("delete vertex V where " + VERTEX_ID + " = ?", idToDelete);
+            OResultSet result = graph.command("delete vertex V where " + VERTEX_ID + " = ?", idToDelete);
+            long deletedCount = result.next().getProperty("count");
+            Assert.assertEquals(deletedCount, 1, "Vertex was not deleted; ");
             deletedIds.add(idToDelete);
             int deletedIdsSize = deletedIds.size();
             if (deletedIdsSize == batchCount / 3 || deletedIdsSize == batchCount * 2 / 3 || deletedIdsSize == batchCount) {
