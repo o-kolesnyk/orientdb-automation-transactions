@@ -59,7 +59,9 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
                         ODatabaseSession graph = orientDB.open(DB_NAME, DB_USERNAME, DB_PASSWORD);
                         while (!interrupt.get()) {
                             iterationNumber++;
-                            addVertexesAndEdges(graph, iterationNumber);
+                            if (Counter.getVertexesNumber() < BasicUtils.getAddedLimit()) {
+                                addVertexesAndEdges(graph, iterationNumber);
+                            }
                         }
                         graph.close();
 
@@ -77,7 +79,10 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
                         ODatabaseSession graph = orientDB.open(DB_NAME, DB_USERNAME, DB_PASSWORD);
                         while (!interrupt.get()) {
                             iterationNumber++;
-                            deleteVertexesAndEdges(graph, iterationNumber);
+                            if (Counter.getDeleted() < BasicUtils.getDeletedLimit()
+                                    && Counter.getVertexesNumber() > BasicUtils.getMaxBatch()) {
+                                deleteVertexesAndEdges(graph, iterationNumber);
+                            }
                         }
                         graph.close();
 
@@ -153,9 +158,10 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
             graph.commit();
 
             //actions after commit
-            performSelectOperations(graph, ids, iterationNumber, threadId, ids.size(), 1);
+            //performSelectOperations(graph, ids, iterationNumber, threadId, ids.size(), 1);
             checkRingCreated(graph, ids);
             //checkClusterPositionsPositive(vertexes);
+            LOG.info("Ring is created");
         } catch (ORecordDuplicatedException e) {
             LOG.error("Duplicated record", e);
             graph.rollback();
@@ -208,6 +214,7 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
         long firstVertexId = ids.get(0);
 
         OResultSet resultSet = graph.query("select from V where " + VERTEX_ID + " = ?", firstVertexId);
+        //TODO: add check here
         OVertex vertex = (OVertex) resultSet.next().getElement().get();
 
         int batchCount = vertex.getProperty(BATCH_COUNT);
@@ -239,17 +246,22 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
     }
 
     private void checkClusterPositionsPositive(List<OVertex> vertexes) {
-        for (int i = 0; i < vertexes.size(); i++) {
-            long clusterPosition = vertexes.get(i).getIdentity().getClusterPosition();
-            Assert.assertTrue(clusterPosition >= 0, "Cluster position in a record is not positive");
-        }
+        vertexes.forEach(vertex -> Assert.assertTrue(vertex.getIdentity().getClusterPosition() >= 0,
+                "Cluster position in a record is not positive"));
     }
 
     private void deleteVertexesAndEdges(ODatabaseSession graph, long iterationNumber) {
-        graph.begin();
-
-        long firstVertex = BasicUtils.getRandomVertexId();
-        OResultSet resultSet = graph.query("select from V where " + VERTEX_ID + " = ?", firstVertex);
+        //graph.begin();
+        boolean success = false;
+        long firstVertex;
+        OResultSet resultSet = null;
+        while (!success) {
+            firstVertex = BasicUtils.getRandomVertexId();
+            resultSet = graph.query("select from V where " + VERTEX_ID + " = ?", firstVertex);
+            if (resultSet.hasNext()) {
+                success = true;
+            }
+        }
         OVertex vertex = (OVertex) resultSet.next().getElement().get();
         int batchCount = vertex.getProperty(BATCH_COUNT);
         int threadId = vertex.getProperty(CREATOR_ID);
@@ -272,18 +284,21 @@ public class TransactionsTest extends CreateGraphDatabaseFixture {
             long deletedCount = result.next().getProperty("count");
             Assert.assertEquals(deletedCount, 1, "Vertex was not deleted; ");
             deletedIds.add(idToDelete);
+            Counter.incrementDeleted();
+
             int deletedIdsSize = deletedIds.size();
             if (deletedIdsSize == batchCount / 3 || deletedIdsSize == batchCount * 2 / 3 || deletedIdsSize == batchCount) {
                 //check whether a part of vertexes were really deleted
-                selectByIds(graph, deletedIds, 0);
+                //selectByIds(graph, deletedIds, 0);
                 //check whether all the rest of the vertexes persist
                 List<Long> retainedIds = (List<Long>) CollectionUtils.disjunction(ids, deletedIds);
                 if (!retainedIds.isEmpty()) {
-                    performSelectOperations(
-                            graph, retainedIds, iterationNumber, threadId, retainedIds.size(), 1);
+                    //performSelectOperations(
+                    //        graph, retainedIds, iterationNumber, threadId, retainedIds.size(), 1);
                 }
             }
         }
-        graph.commit();
+        LOG.info("Ring is deleted");
+        //graph.commit();
     }
 }

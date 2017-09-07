@@ -9,7 +9,22 @@ public class BasicUtils {
 
     private static final int MIN_BATCH = 6;
     private static final int MAX_BATCH = 27;
+    //TODO: change this numbers
     private static final int HOURS_NUMBER = 4;
+    private static final int ADDED_LIMIT = 5000;
+    private static final int DELETED_LIMIT = 2000;
+
+    public static int getMaxBatch() {
+        return MAX_BATCH;
+    }
+
+    public static int getAddedLimit() {
+        return ADDED_LIMIT;
+    }
+
+    public static int getDeletedLimit() {
+        return DELETED_LIMIT;
+    }
 
     public static Date getTimeToInterrupt() {
         Date date = new Date();
